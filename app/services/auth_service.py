@@ -47,10 +47,18 @@ class AuthService:
         }
 
     async def refresh_access_token(self, refresh_token: str) -> Optional[dict]:
+        logger.info(f"🔄 Attempting to refresh token (first 20 chars): {refresh_token[:20]}...")
         payload = verify_token(refresh_token)
-        if not payload or payload.get("type") != "refresh":
+        
+        if not payload:
+            logger.warning("❌ Refresh token verification failed - invalid token")
+            return None
+            
+        if payload.get("type") != "refresh":
+            logger.warning(f"❌ Invalid token type: {payload.get('type')}, expected 'refresh'")
             return None
         
+        logger.info(f"✅ Refresh token valid for user: {payload.get('user_id')}")
         user_data = {
             "user_id": payload.get("user_id"),
             "email": payload.get("email"),
@@ -58,6 +66,7 @@ class AuthService:
         }
         
         access_token = create_access_token(user_data)
+        logger.info("✅ New access token created successfully")
         return {
             "access_token": access_token,
             "token_type": "bearer"

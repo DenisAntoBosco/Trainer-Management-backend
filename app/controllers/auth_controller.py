@@ -21,6 +21,7 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
             return APIResponse.error("Invalid credentials", 401)
         
         logger.info(f"Successful login: {login_data.email}")
+        logger.info(f"🎫 Login response includes: access_token={bool(result.get('access_token'))}, refresh_token={bool(result.get('refresh_token'))}")
         return APIResponse.success(result)
     except Exception as e:
         error_id = await ErrorLogger.log_error(e, "auth_controller", "login")
@@ -32,16 +33,24 @@ async def refresh_token(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         auth_service = AuthService(db)
         refresh_token = request.headers.get("X-Refresh-Token")
+        logger.info(f"🔄 Refresh token attempt - token present: {refresh_token is not None}")
+        
         if not refresh_token:
+            logger.warning("❌ No refresh token provided in X-Refresh-Token header")
             return APIResponse.error("Refresh token required", 400)
         
+        logger.info(f"🎫 Refresh token received (first 20 chars): {refresh_token[:20]}...")
         result = await auth_service.refresh_access_token(refresh_token)
+        
         if not result:
+            logger.warning("❌ Invalid or expired refresh token")
             return APIResponse.error("Invalid refresh token", 401)
         
+        logger.info("✅ Token refresh successful")
         return APIResponse.success(result)
     except Exception as e:
         error_id = await ErrorLogger.log_error(e, "auth_controller", "refresh_token")
+        logger.error(f"❌ Token refresh error: {str(e)}")
         return APIResponse.error("Token refresh failed", 500, error_id)
 
 @router.post("/change-password")
