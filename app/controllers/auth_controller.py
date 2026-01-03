@@ -32,11 +32,12 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
 async def refresh_token(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         auth_service = AuthService(db)
-        refresh_token = request.headers.get("X-Refresh-Token")
+        # Try standard header first, then custom header
+        refresh_token = request.headers.get("X-Refresh-Token") or request.headers.get("x-refresh-token") or request.headers.get("X-Refresh")
         logger.info(f"🔄 Refresh token attempt - token present: {refresh_token is not None}")
         
         if not refresh_token:
-            logger.warning("❌ No refresh token provided in X-Refresh-Token header")
+            logger.warning("❌ No refresh token provided in X-Refresh-Token, x-refresh-token, or X-Refresh header")
             return APIResponse.error("Refresh token required", 400)
         
         logger.info(f"🎫 Refresh token received (first 20 chars): {refresh_token[:20]}...")

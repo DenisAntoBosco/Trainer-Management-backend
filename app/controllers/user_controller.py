@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from uuid import UUID
 from ..core.database import get_db
-from ..core.auth import get_current_user
+from ..core.auth import get_current_user, get_current_user_custom_header
 from ..services.user_service import UserService
 from ..schemas import UserResponse, UserCreate
 from ..core.response import APIResponse
@@ -15,9 +15,16 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("/me")
 async def get_current_user_profile(
-    current_user: dict = Depends(get_current_user),
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
+    # Try custom header auth as fallback for CloudFront issues
+    try:
+        current_user = await get_current_user_custom_header(request)
+    except HTTPException:
+        # Fallback to standard auth
+        current_user = await get_current_user(Depends(get_current_user))
+    
     logger.info(f"👤 GET /users/me called - user_id: {current_user.get('user_id')}, role: {current_user.get('role')}")
     try:
         user_service = UserService(db)
