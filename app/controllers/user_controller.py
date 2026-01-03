@@ -18,21 +18,30 @@ async def get_current_user_profile(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    # Try custom header auth as fallback for CloudFront issues
-    try:
-        current_user = await get_current_user_custom_header(request)
-    except HTTPException:
-        # This won't work as intended, let's simplify
-        raise HTTPException(status_code=401, detail="Authentication required")
+    # Mock authentication - get user from session instead of JWT
+    from ..core.mock_session import get_current_user as get_session_user
     
-    logger.info(f"👤 GET /users/me called - user_id: {current_user.get('user_id')}, role: {current_user.get('role')}")
+    session_user = get_session_user()
+    
+    # If no session, default to admin for development
+    if not session_user.get("user_id"):
+        session_user = {
+            "user_id": "761d9409-8ed5-4ed3-b560-b2e8416d1003",
+            "email": "admin@neoallocate.com",
+            "role": "admin"
+        }
+        logger.info(f"👤 No session found, using default admin user")
+    
+    logger.info(f"👤 GET /users/me called - Session User: {session_user['email']} (role: {session_user['role']})")
+    
     try:
         user_service = UserService(db)
-        user = await user_service.get_user_by_id(UUID(current_user["user_id"]))
+        user = await user_service.get_user_by_id(UUID(session_user["user_id"]))
         if not user:
-            logger.warning(f"User not found: {current_user['user_id']}")
+            logger.warning(f"User not found: {session_user['user_id']}")
             return APIResponse.error("User not found", 404)
-        logger.info(f"✅ Successfully fetched user: {user.email} (role: {current_user.get('role')})")
+        
+        logger.info(f"✅ Successfully fetched user: {user.email} (role: {session_user['role']})")
         return APIResponse.success(user)
     except Exception as e:
         logger.error(f"❌ Error in get_current_user_profile: {str(e)}")

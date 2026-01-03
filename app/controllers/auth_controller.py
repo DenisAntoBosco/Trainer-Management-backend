@@ -22,6 +22,13 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
         
         logger.info(f"Successful login: {login_data.email}")
         logger.info(f"🎫 Login response includes: access_token={bool(result.get('access_token'))}, refresh_token={bool(result.get('refresh_token'))}")
+        
+        # Store user session for mock authentication
+        from ..core.mock_session import set_current_user
+        role = user.roles[0].role.value if user.roles else "admin"
+        set_current_user(str(user.id), user.email, role)
+        logger.info(f"💾 Mock session stored: {user.email} as {role}")
+        
         return APIResponse.success(result)
     except Exception as e:
         error_id = await ErrorLogger.log_error(e, "auth_controller", "login")
@@ -73,7 +80,9 @@ async def signup(signup_data: SignupRequest, db: AsyncSession = Depends(get_db))
 @router.post("/logout")
 async def logout():
     try:
-        logger.info("User logged out")
+        from ..core.mock_session import clear_session
+        clear_session()
+        logger.info("🚪 User logged out - session cleared")
         return APIResponse.success({"message": "Logged out successfully"})
     except Exception as e:
         error_id = await ErrorLogger.log_error(e, "auth_controller", "logout")

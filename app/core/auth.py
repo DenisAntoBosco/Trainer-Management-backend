@@ -40,10 +40,15 @@ async def get_current_user_custom_header(request: Request):
     # Try standard Authorization header first
     auth_header = request.headers.get("authorization")
     if not auth_header:
-        # Try custom header as fallback
-        auth_header = request.headers.get("x-auth-token")
+        # Try multiple custom header variations
+        auth_header = (request.headers.get("x-auth-token") or 
+                      request.headers.get("x-custom-auth") or
+                      request.headers.get("x-token") or
+                      request.headers.get("x-user-token") or
+                      request.headers.get("custom-authorization"))
     
     logger.info(f"🔐 Custom auth attempt - header present: {auth_header is not None}")
+    logger.info(f"📋 All headers: {dict(request.headers)}")
     
     if not auth_header:
         logger.warning("No authentication credentials provided")
