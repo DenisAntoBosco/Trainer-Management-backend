@@ -23,6 +23,12 @@ class Settings(BaseSettings):
         if not self.database_url:
             self.database_url = secretsmanager.get_database_url()
         
+        # Get secret key from Secrets Manager if not provided
+        if self.secret_key == "your-secret-key-change-in-production-min-32-chars":
+            secret_key = secretsmanager.get_secret_key()
+            if secret_key:
+                self.secret_key = secret_key
+        
         # Fallback to default if still not found
         if not self.database_url:
             self.database_url = "postgresql+asyncpg://postgres:1234554321@localhost:5432/neotrainer"

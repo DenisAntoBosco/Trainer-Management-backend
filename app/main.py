@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,6 +18,7 @@ from .middleware.error_handler import (
     general_exception_handler
 )
 from .core.logging_config import logger
+import traceback
 
 app = FastAPI(
     title="Training Management System API",
@@ -37,33 +38,101 @@ app.add_exception_handler(Exception, general_exception_handler)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:8080", "http://localhost:3000"],
+    allow_origins=[
+        "https://d1l90pfwzzfkwv.cloudfront.net",  # Your frontend CloudFront
+        "http://localhost:5173", 
+        "http://localhost:8080", 
+        "http://localhost:3000",
+        "*"  # Allow all for development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"🔍 {request.method} {request.url.path} - Client: {request.client.host if request.client else 'unknown'}")
+    try:
+        response = await call_next(request)
+        logger.info(f"✅ {request.method} {request.url.path} - Status: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"❌ {request.method} {request.url.path} - Error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
+
 # Include routers
-app.include_router(auth_router, prefix="/v1")
-app.include_router(user_router, prefix="/v1")
-app.include_router(trainer_router, prefix="/v1")
-app.include_router(project_router, prefix="/v1")
-app.include_router(batch_router, prefix="/v1")
-app.include_router(hr_router, prefix="/v1")
-app.include_router(attendance_router, prefix="/v1")
+try:
+    logger.info("🔧 Registering routers...")
+    app.include_router(auth_router, prefix="/v1")
+    logger.info("✅ Auth router registered")
+    app.include_router(user_router, prefix="/v1")
+    logger.info("✅ User router registered")
+    app.include_router(trainer_router, prefix="/v1")
+    logger.info("✅ Trainer router registered")
+    app.include_router(project_router, prefix="/v1")
+    logger.info("✅ Project router registered")
+    app.include_router(batch_router, prefix="/v1")
+    logger.info("✅ Batch router registered")
+    app.include_router(hr_router, prefix="/v1")
+    logger.info("✅ HR router registered")
+    app.include_router(attendance_router, prefix="/v1")
+    logger.info("✅ Attendance router registered")
+    logger.info("✅ All routers registered successfully")
+except Exception as e:
+    logger.error(f"❌ Error registering routers: {str(e)}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    raise
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Application starting up...")
+    logger.info("🚀 Application starting up...")
+    try:
+        # Test database connection
+        from .core.database import get_db
+        async for db in get_db():
+            await db.execute("SELECT 1")
+            logger.info("✅ Database connection successful")
+            break
+    except Exception as e:
+        logger.error(f"❌ Database connection failed: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    logger.info("✅ Application startup complete")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Application shutting down...")
+    logger.info("🛑 Application shutting down...")
 
 @app.get("/")
 async def root():
+    logger.info("🏠 Root endpoint called")
     return {"message": "Training Management System API", "version": "1.0.0"}
+
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    logger.info(f"🔧 OPTIONS request for path: {path}")
+    return {"message": "OK"}
+
+@app.get("/test-db")
+async def test_database():
+    logger.info("📊 Database test endpoint called")
+    try:
+        from .core.database import get_db
+        async for db in get_db():
+            result = await db.execute("SELECT 1 as test")
+            row = result.first()
+            logger.info(f"✅ Database test successful: {row}")
+            return {"status": "database connected", "test_result": dict(row._mapping) if row else None}
+    except Exception as e:
+        logger.error(f"❌ Database test failed: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {"status": "database error", "error": str(e)}
 
 @app.get("/api/document/healthCheck")
 async def health_check():
+    logger.info("❤️ Health check endpoint called")
     return {"status": "healthy"}

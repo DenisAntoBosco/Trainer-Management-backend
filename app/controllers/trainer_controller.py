@@ -6,12 +6,14 @@ from uuid import UUID
 from datetime import date
 import json
 import asyncio
+import traceback
 from ..core.database import get_db
 from ..core.auth import get_current_user
 from ..services.trainer_service import TrainerService
 from ..schemas import TrainerResponse, TrainerCreate, TrainerUpdate, TrainerStatus, AppRole
 from ..core.response import APIResponse
 from ..core.error_logger import ErrorLogger
+from ..core.logging_config import logger
 
 router = APIRouter(prefix="/trainers", tags=["Trainers"])
 
@@ -101,11 +103,16 @@ async def get_trainers(
     expertise: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
+    logger.info(f"📊 GET /trainers called - skip: {skip}, limit: {limit}, status: {status}, expertise: {expertise}")
     try:
         trainer_service = TrainerService(db)
+        logger.info("🔍 Fetching trainers from service...")
         trainers = await trainer_service.get_trainers(skip, limit, status, expertise)
+        logger.info(f"✅ Successfully fetched {len(trainers) if trainers else 0} trainers")
         return APIResponse.success(trainers)
     except Exception as e:
+        logger.error(f"❌ Error in get_trainers: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         error_id = await ErrorLogger.log_error(e, "trainer_controller", "get_trainers")
         return APIResponse.error("Failed to fetch trainers", 500, error_id)
 
