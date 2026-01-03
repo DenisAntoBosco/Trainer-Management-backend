@@ -25,9 +25,12 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
         
         # Store user session for mock authentication
         from ..core.mock_session import set_current_user
-        role = user.roles[0].role.value if user.roles else "admin"
-        set_current_user(str(user.id), user.email, role)
-        logger.info(f"💾 Mock session stored: {user.email} as {role}")
+        # Get user info from result
+        user_data = result.get('user')
+        if user_data:
+            role = getattr(user_data, 'role', 'admin')  # Get role from user data
+            set_current_user(str(user_data.id), user_data.email, role)
+            logger.info(f"💾 Mock session stored: {user_data.email} as {role}")
         
         return APIResponse.success(result)
     except Exception as e:
