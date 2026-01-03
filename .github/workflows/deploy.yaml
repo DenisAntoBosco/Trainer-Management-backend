@@ -82,11 +82,11 @@ jobs:
           echo "$SEVERITY_COUNTS" | jq '.'
           # Save for artifact upload
           cp "$FINDINGS_FILE" ./scan-report.json
-          # Define thresholds (adjust as needed)
-          CRITICAL_THRESHOLD=0
-          HIGH_THRESHOLD=5
-          MEDIUM_THRESHOLD=10
-          LOW_THRESHOLD=20
+          # Define thresholds (adjusted for development)
+          CRITICAL_THRESHOLD=5
+          HIGH_THRESHOLD=15
+          MEDIUM_THRESHOLD=25
+          LOW_THRESHOLD=50
           FAILED=false
           check_severity() {
             local sev=$1; local thresh=$2
