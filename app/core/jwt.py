@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from .config import settings
 
-# Use the same secret key from settings
-SECRET_KEY = settings.secret_key
+# Use hardcoded SECRET_KEY to ensure consistency
+SECRET_KEY = "sk_prod_trainer_mgmt_2024_secure_key_32_chars_min"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7

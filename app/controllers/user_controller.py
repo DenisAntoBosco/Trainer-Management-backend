@@ -18,14 +18,14 @@ async def get_current_user_profile(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    logger.info(f"👤 GET /users/me called - user_id: {current_user.get('user_id')}")
+    logger.info(f"👤 GET /users/me called - user_id: {current_user.get('user_id')}, role: {current_user.get('role')}")
     try:
         user_service = UserService(db)
         user = await user_service.get_user_by_id(UUID(current_user["user_id"]))
         if not user:
             logger.warning(f"User not found: {current_user['user_id']}")
             return APIResponse.error("User not found", 404)
-        logger.info(f"✅ Successfully fetched user: {user.email}")
+        logger.info(f"✅ Successfully fetched user: {user.email} (role: {current_user.get('role')})")
         return APIResponse.success(user)
     except Exception as e:
         logger.error(f"❌ Error in get_current_user_profile: {str(e)}")
