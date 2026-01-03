@@ -22,8 +22,8 @@ async def get_current_user_profile(
     try:
         current_user = await get_current_user_custom_header(request)
     except HTTPException:
-        # Fallback to standard auth
-        current_user = await get_current_user(Depends(get_current_user))
+        # This won't work as intended, let's simplify
+        raise HTTPException(status_code=401, detail="Authentication required")
     
     logger.info(f"👤 GET /users/me called - user_id: {current_user.get('user_id')}, role: {current_user.get('role')}")
     try:
