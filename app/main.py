@@ -93,8 +93,9 @@ async def startup_event():
     try:
         # Test database connection
         from .core.database import get_db
+        from sqlalchemy import text
         async for db in get_db():
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             logger.info("✅ Database connection successful")
             break
     except Exception as e:
@@ -122,8 +123,9 @@ async def test_database():
     logger.info("📊 Database test endpoint called")
     try:
         from .core.database import get_db
+        from sqlalchemy import text
         async for db in get_db():
-            result = await db.execute("SELECT 1 as test")
+            result = await db.execute(text("SELECT 1 as test"))
             row = result.first()
             logger.info(f"✅ Database test successful: {row}")
             return {"status": "database connected", "test_result": dict(row._mapping) if row else None}

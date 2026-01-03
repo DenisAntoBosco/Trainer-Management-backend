@@ -22,6 +22,7 @@ async def get_my_trainer_profile(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    logger.info(f"👤 GET /trainers/me/profile called - user_id: {current_user.get('user_id')}")
     try:
         from sqlalchemy import text
         result = await db.execute(
@@ -30,11 +31,15 @@ async def get_my_trainer_profile(
         )
         trainer = result.first()
         if not trainer:
+            logger.warning(f"Trainer profile not found for user: {current_user['user_id']}")
             return APIResponse.error("Trainer profile not found", 404)
         
         trainer_dict = dict(trainer._mapping)
+        logger.info(f"✅ Successfully fetched trainer profile for user: {current_user['user_id']}")
         return APIResponse.success(trainer_dict)
     except Exception as e:
+        logger.error(f"❌ Error in get_my_trainer_profile: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         error_id = await ErrorLogger.log_error(e, "trainer_controller", "get_my_trainer_profile")
         return APIResponse.error("Failed to fetch trainer profile", 500, error_id)
 
