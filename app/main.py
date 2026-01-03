@@ -55,6 +55,15 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"🔍 {request.method} {request.url.path} - Client: {request.client.host if request.client else 'unknown'}")
+    
+    # Log all headers for debugging authentication issues
+    if request.url.path in ["/v1/users/me", "/v1/auth/refresh"]:
+        logger.info(f"📋 Headers received: {dict(request.headers)}")
+        auth_header = request.headers.get("authorization")
+        refresh_header = request.headers.get("x-refresh-token")
+        logger.info(f"🔐 Authorization header: {auth_header[:50] + '...' if auth_header else 'None'}")
+        logger.info(f"🔄 X-Refresh-Token header: {refresh_header[:50] + '...' if refresh_header else 'None'}")
+    
     try:
         response = await call_next(request)
         logger.info(f"✅ {request.method} {request.url.path} - Status: {response.status_code}")
