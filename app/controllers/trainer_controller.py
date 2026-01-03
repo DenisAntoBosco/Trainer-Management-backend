@@ -124,21 +124,34 @@ async def get_trainers(
 
 @router.post("/")
 async def create_trainer(trainer_data: TrainerCreate, db: AsyncSession = Depends(get_db)):
+    # Mock authentication - get user from session
+    from ..core.mock_session import get_current_user as get_session_user
+    
+    session_user = get_session_user()
+    
+    # If no session, default to admin for development
+    if not session_user.get("user_id"):
+        session_user = {
+            "user_id": "761d9409-8ed5-4ed3-b560-b2e8416d1003",
+            "email": "admin@neoallocate.com",
+            "role": "admin"
+        }
+        logger.info(f"👤 No session found, using default admin user")
+    
+    logger.info(f"🎯 POST /trainers called - User: {session_user['email']} (role: {session_user['role']})")
+    
     try:
         trainer_service = TrainerService(db)
         trainer = await trainer_service.create_trainer(trainer_data)
+        logger.info(f"✅ Successfully created trainer: {trainer.get('email', 'unknown')}")
         return APIResponse.success(trainer, 201)
     except ValueError as e:
-        print(f"ValueError creating trainer: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"❌ ValueError creating trainer: {str(e)}")
+        return APIResponse.error(str(e), 400)
     except Exception as e:
-        print(f"Exception creating trainer: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Error in create_trainer: {str(e)}")
         error_id = await ErrorLogger.log_error(e, "trainer_controller", "create_trainer")
-        raise HTTPException(status_code=500, detail=f"Failed to create trainer: {str(e)}")
+        return APIResponse.error(f"Failed to create trainer: {str(e)}", 500, error_id)
 
 @router.post("/bulk")
 async def create_trainers_bulk(trainers_data: List[TrainerCreate], db: AsyncSession = Depends(get_db)):
@@ -235,23 +248,60 @@ async def get_available_trainers(
     end_date: date = Query(...),
     db: AsyncSession = Depends(get_db)
 ):
+    # Mock authentication - get user from session
+    from ..core.mock_session import get_current_user as get_session_user
+    
+    session_user = get_session_user()
+    
+    # If no session, default to admin for development
+    if not session_user.get("user_id"):
+        session_user = {
+            "user_id": "761d9409-8ed5-4ed3-b560-b2e8416d1003",
+            "email": "admin@neoallocate.com",
+            "role": "admin"
+        }
+        logger.info(f"👤 No session found, using default admin user")
+    
+    logger.info(f"🔍 GET /trainers/available called - User: {session_user['email']} (role: {session_user['role']})")
+    
     try:
         trainer_service = TrainerService(db)
         trainers = await trainer_service.get_available_trainers(domain, start_date, end_date)
+        logger.info(f"✅ Successfully fetched {len(trainers) if trainers else 0} available trainers")
         return APIResponse.success(trainers)
     except Exception as e:
+        logger.error(f"❌ Error in get_available_trainers: {str(e)}")
         error_id = await ErrorLogger.log_error(e, "trainer_controller", "get_available_trainers")
         return APIResponse.error("Failed to fetch available trainers", 500, error_id)
 
 @router.get("/{trainer_id}")
 async def get_trainer(trainer_id: UUID, db: AsyncSession = Depends(get_db)):
+    # Mock authentication - get user from session
+    from ..core.mock_session import get_current_user as get_session_user
+    
+    session_user = get_session_user()
+    
+    # If no session, default to admin for development
+    if not session_user.get("user_id"):
+        session_user = {
+            "user_id": "761d9409-8ed5-4ed3-b560-b2e8416d1003",
+            "email": "admin@neoallocate.com",
+            "role": "admin"
+        }
+        logger.info(f"👤 No session found, using default admin user")
+    
+    logger.info(f"🔍 GET /trainers/{trainer_id} called - User: {session_user['email']} (role: {session_user['role']})")
+    
     try:
         trainer_service = TrainerService(db)
         trainer = await trainer_service.get_trainer_by_id(trainer_id)
         if not trainer:
+            logger.warning(f"Trainer not found: {trainer_id}")
             return APIResponse.error("Trainer not found", 404)
+        logger.info(f"✅ Successfully fetched trainer: {trainer.get('email', 'unknown')}")
         return APIResponse.success(trainer)
     except Exception as e:
+        logger.error(f"❌ Error in get_trainer: {str(e)}")
         error_id = await ErrorLogger.log_error(e, "trainer_controller", "get_trainer")
         return APIResponse.error("Failed to fetch trainer", 500, error_id)
 
