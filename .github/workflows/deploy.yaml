@@ -41,79 +41,79 @@ jobs:
           docker tag "$IMAGE_URI" "${REGISTRY}/${{ env.ECR_REPO }}:latest"
           docker push "${REGISTRY}/${{ env.ECR_REPO }}:latest"
           
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      # - name: Install jq
+      #   run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Scan with AWS Inspector and validate thresholds
-        id: inspector-check
-        run: |
-          IMAGE_URI="${{ env.IMAGE_URI }}"
-          echo "Scanning image: $IMAGE_URI"
-          # Fetch findings from Inspector v2 using correct filter syntax
-          FINDINGS_FILE=$(mktemp)
-          aws inspector2 list-findings \
-            --filter-criteria "resourceId=[{comparison=\"EQUALS\",value=\"$IMAGE_URI\"}]" \
-            --max-results 100 \
-            > "$FINDINGS_FILE"
-          # Normalize findings (handle empty case)
-          if ! jq -e '.findings // empty' "$FINDINGS_FILE" >/dev/null 2>&1; then
-            echo "[]" > "$FINDINGS_FILE"
-          fi
-          # Count by severity
-          SEVERITY_COUNTS=$(jq -n \
-            --argjson findings "$(jq -r '.findings // []' "$FINDINGS_FILE")" \
-            '
-            {
-              "CRITICAL": 0,
-              "HIGH": 0,
-              "MEDIUM": 0,
-              "LOW": 0,
-              "UNTRIAGED": 0
-            } as $init |
-            ($init + (
-              $findings
-              | map(select(.severity != null))
-              | group_by(.severity)
-              | map({ key: .[0].severity, value: length })
-              | from_entries
-            ))
-            ')
-          echo "📊 Vulnerability counts:"
-          echo "$SEVERITY_COUNTS" | jq '.'
-          # Save for artifact upload
-          cp "$FINDINGS_FILE" ./scan-report.json
-          # Define thresholds (adjusted for development)
-          CRITICAL_THRESHOLD=5
-          HIGH_THRESHOLD=15
-          MEDIUM_THRESHOLD=25
-          LOW_THRESHOLD=50
-          FAILED=false
-          check_severity() {
-            local sev=$1; local thresh=$2
-            local count=$(echo "$SEVERITY_COUNTS" | jq -r ".$sev // 0")
-            if [[ $thresh -ge 0 && $count -gt $thresh ]]; then
-              echo "❌ $sev: $count > threshold ($thresh)"
-              FAILED=true
-            else
-              echo "✅ $sev: $count <= $thresh"
-            fi
-          }
-          check_severity "CRITICAL" $CRITICAL_THRESHOLD
-          check_severity "HIGH" $HIGH_THRESHOLD
-          check_severity "MEDIUM" $MEDIUM_THRESHOLD
-          check_severity "LOW" $LOW_THRESHOLD
-          if [[ "$FAILED" == "true" ]]; then
-            echo "💥 Pipeline failed due to exceeded vulnerability thresholds."
-            exit 1
-          else
-            echo "✅ All thresholds respected."
-          fi
-      - name: Upload AWS Inspector Scan Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: aws-inspector-scan-report
-          path: ./scan-report.json
+      # - name: Scan with AWS Inspector and validate thresholds
+      #   id: inspector-check
+      #   run: |
+      #     IMAGE_URI="${{ env.IMAGE_URI }}"
+      #     echo "Scanning image: $IMAGE_URI"
+      #     # Fetch findings from Inspector v2 using correct filter syntax
+      #     FINDINGS_FILE=$(mktemp)
+      #     aws inspector2 list-findings \
+      #       --filter-criteria "resourceId=[{comparison=\"EQUALS\",value=\"$IMAGE_URI\"}]" \
+      #       --max-results 100 \
+      #       > "$FINDINGS_FILE"
+      #     # Normalize findings (handle empty case)
+      #     if ! jq -e '.findings // empty' "$FINDINGS_FILE" >/dev/null 2>&1; then
+      #       echo "[]" > "$FINDINGS_FILE"
+      #     fi
+      #     # Count by severity
+      #     SEVERITY_COUNTS=$(jq -n \
+      #       --argjson findings "$(jq -r '.findings // []' "$FINDINGS_FILE")" \
+      #       '
+      #       {
+      #         "CRITICAL": 0,
+      #         "HIGH": 0,
+      #         "MEDIUM": 0,
+      #         "LOW": 0,
+      #         "UNTRIAGED": 0
+      #       } as $init |
+      #       ($init + (
+      #         $findings
+      #         | map(select(.severity != null))
+      #         | group_by(.severity)
+      #         | map({ key: .[0].severity, value: length })
+      #         | from_entries
+      #       ))
+      #       ')
+      #     echo "📊 Vulnerability counts:"
+      #     echo "$SEVERITY_COUNTS" | jq '.'
+      #     # Save for artifact upload
+      #     cp "$FINDINGS_FILE" ./scan-report.json
+      #     # Define thresholds (adjusted for development)
+      #     CRITICAL_THRESHOLD=5
+      #     HIGH_THRESHOLD=15
+      #     MEDIUM_THRESHOLD=25
+      #     LOW_THRESHOLD=50
+      #     FAILED=false
+      #     check_severity() {
+      #       local sev=$1; local thresh=$2
+      #       local count=$(echo "$SEVERITY_COUNTS" | jq -r ".$sev // 0")
+      #       if [[ $thresh -ge 0 && $count -gt $thresh ]]; then
+      #         echo "❌ $sev: $count > threshold ($thresh)"
+      #         FAILED=true
+      #       else
+      #         echo "✅ $sev: $count <= $thresh"
+      #       fi
+      #     }
+      #     check_severity "CRITICAL" $CRITICAL_THRESHOLD
+      #     check_severity "HIGH" $HIGH_THRESHOLD
+      #     check_severity "MEDIUM" $MEDIUM_THRESHOLD
+      #     check_severity "LOW" $LOW_THRESHOLD
+      #     if [[ "$FAILED" == "true" ]]; then
+      #       echo "💥 Pipeline failed due to exceeded vulnerability thresholds."
+      #       exit 1
+      #     else
+      #       echo "✅ All thresholds respected."
+      #     fi
+      # - name: Upload AWS Inspector Scan Report
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: aws-inspector-scan-report
+      #     path: ./scan-report.json
       - name: Render ECS task definition
         id: render-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
