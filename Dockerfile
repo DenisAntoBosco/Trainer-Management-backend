@@ -11,7 +11,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 
 # Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim-bullseye
@@ -24,7 +24,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY ./app ./app
@@ -37,9 +38,6 @@ RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 USER appuser
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
 
 # Expose port
 EXPOSE 8080
