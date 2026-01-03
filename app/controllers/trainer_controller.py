@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
@@ -8,7 +8,6 @@ import json
 import asyncio
 import traceback
 from ..core.database import get_db
-from ..core.auth import get_current_user
 from ..services.trainer_service import TrainerService
 from ..schemas import TrainerResponse, TrainerCreate, TrainerUpdate, TrainerStatus, AppRole
 from ..core.response import APIResponse
@@ -39,17 +38,21 @@ async def get_my_trainer_profile(db: AsyncSession = Depends(get_db)):
 
 @router.get("/me/assignments")
 async def get_my_assignments(
-    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     print(f"\n=== GET MY ASSIGNMENTS CALLED ===")
-    print(f"Current user: {current_user}")
+    # Get current user from mock session
+    from ..core.mock_session import get_current_user as get_session_user
+    session_user = get_session_user()
+    user_id = session_user.get("user_id") or "761d9409-8ed5-4ed3-b560-b2e8416d1003"
+    
+    print(f"Session user: {session_user}")
     try:
         trainer_service = TrainerService(db)
         from sqlalchemy import text
         result = await db.execute(
             text("SELECT id FROM trainers WHERE user_id = :user_id"),
-            {'user_id': current_user['user_id']}
+            {'user_id': user_id}
         )
         trainer = result.first()
         print(f"Trainer found: {trainer}")
@@ -72,15 +75,19 @@ async def get_my_assignments(
 @router.put("/me/expertise")
 async def update_my_expertise(
     expertise: List[str],
-    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     try:
+        # Get current user from mock session
+        from ..core.mock_session import get_current_user as get_session_user
+        session_user = get_session_user()
+        user_id = session_user.get("user_id") or "761d9409-8ed5-4ed3-b560-b2e8416d1003"
+        
         trainer_service = TrainerService(db)
         from sqlalchemy import text
         result = await db.execute(
             text("SELECT id FROM trainers WHERE user_id = :user_id"),
-            {'user_id': current_user['user_id']}
+            {'user_id': user_id}
         )
         trainer = result.first()
         if not trainer:
@@ -265,32 +272,11 @@ async def get_trainer_allocations(trainer_id: UUID, db: AsyncSession = Depends(g
 async def update_trainer(
     trainer_id: UUID, 
     trainer_data: TrainerUpdate, 
-    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     try:
         trainer_service = TrainerService(db)
-        
-        # Get trainer to check ownership
-        trainer = await trainer_service.get_trainer_by_id(trainer_id)
-        if not trainer:
-            return APIResponse.error("Trainer not found", 404)
-        
-        # Check permissions
-        user_role = current_user.get("role")
-        user_id = UUID(current_user.get("user_id"))
-        
-        # If trainer role, only allow updating their own profile and only expertise field
-        if user_role == "trainer":
-            if str(trainer.get("user_id")) != str(user_id):
-                return APIResponse.error("You can only update your own profile", 403)
-            # Trainers can only update expertise
-            allowed_update = TrainerUpdate(expertise=trainer_data.expertise)
-            trainer = await trainer_service.update_trainer(trainer_id, allowed_update)
-        else:
-            # Admin/HR can update everything
-            trainer = await trainer_service.update_trainer(trainer_id, trainer_data)
-        
+        trainer = await trainer_service.update_trainer(trainer_id, trainer_data)
         return APIResponse.success(trainer)
     except Exception as e:
         error_id = await ErrorLogger.log_error(e, "trainer_controller", "update_trainer")
