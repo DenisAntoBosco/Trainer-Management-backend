@@ -1,0 +1,775 @@
+openapi: 3.0.0
+info:
+  title: Training Management System API
+  description: Complete REST API for managing corporate training programs with trainers, projects, engagements, and attendance tracking
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@trainermanagement.com
+
+servers:
+  - url: http://localhost:8000/v1
+    description: Local development server
+  - url: https://api.trainermanagement.com/v1
+    description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        error_id:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, hr, project_manager, trainer]
+        avatar_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Trainer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        expertise:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [available, partially_allocated, fully_allocated, on_leave]
+        max_batches:
+          type: integer
+        current_batches:
+          type: integer
+        employment_type:
+          type: string
+          enum: [full-time, part-time, freelance, intern]
+        experience_level:
+          type: string
+          enum: [junior, mid, senior]
+        gender:
+          type: string
+          enum: [male, female]
+        join_date:
+          type: string
+          format: date
+        avatar:
+          type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        client_name:
+          type: string
+        primary_contact_name:
+          type: string
+        primary_contact_email:
+          type: string
+        primary_contact_phone:
+          type: string
+        project_type:
+          type: array
+          items:
+            type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, upcoming, completed]
+        engagements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Engagement'
+
+    Engagement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        domain:
+          type: string
+        training_type:
+          type: string
+        total_students:
+          type: integer
+        students_per_batch:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, upcoming, completed]
+        batches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+
+    Batch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        engagement_id:
+          type: string
+          format: uuid
+        batch_number:
+          type: integer
+        students:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [confirmed, pending, awaiting_confirmation]
+        trainer_id:
+          type: string
+          format: uuid
+        confirmed_at:
+          type: string
+          format: date-time
+        confirmed_by:
+          type: string
+          format: uuid
+
+    HRRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        engagement_id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+        trainers_needed:
+          type: integer
+        urgency:
+          type: string
+          enum: [critical, high, medium, low]
+        status:
+          type: string
+          enum: [pending, in_progress, fulfilled]
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+
+    Attendance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        trainer_id:
+          type: string
+        trainer_name:
+          type: string
+        batch_id:
+          type: string
+        project_id:
+          type: string
+        engagement_id:
+          type: string
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [pending, present, absent, half_day]
+        punch_in:
+          type: string
+          format: date-time
+        punch_out:
+          type: string
+          format: date-time
+        completion_notes:
+          type: string
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      token_type:
+                        type: string
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      parameters:
+        - in: header
+          name: X-Refresh-Token
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token refreshed
+        '401':
+          description: Invalid refresh token
+
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /trainers/:
+    get:
+      tags:
+        - Trainers
+      summary: Get all trainers
+      parameters:
+        - in: query
+          name: skip
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: expertise
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of trainers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trainer'
+                  metadata:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+
+    post:
+      tags:
+        - Trainers
+      summary: Create new trainer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                expertise:
+                  type: array
+                  items:
+                    type: string
+                employment_type:
+                  type: string
+                experience_level:
+                  type: string
+                max_batches:
+                  type: integer
+                gender:
+                  type: string
+                join_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Trainer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+
+  /trainers/{trainer_id}:
+    get:
+      tags:
+        - Trainers
+      summary: Get trainer by ID
+      parameters:
+        - in: path
+          name: trainer_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Trainer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+        '404':
+          description: Trainer not found
+
+    put:
+      tags:
+        - Trainers
+      summary: Update trainer
+      parameters:
+        - in: path
+          name: trainer_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Trainer updated
+
+    delete:
+      tags:
+        - Trainers
+      summary: Delete trainer
+      parameters:
+        - in: path
+          name: trainer_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Trainer deleted
+
+  /projects/:
+    get:
+      tags:
+        - Projects
+      summary: Get all projects
+      parameters:
+        - in: query
+          name: skip
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+
+    post:
+      tags:
+        - Projects
+      summary: Create new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                client_name:
+                  type: string
+                primary_contact:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                    phone:
+                      type: string
+                project_type:
+                  type: array
+                  items:
+                    type: string
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Project created
+
+  /projects/{project_id}:
+    get:
+      tags:
+        - Projects
+      summary: Get project by ID
+      parameters:
+        - in: path
+          name: project_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project details with engagements and batches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /projects/{project_id}/engagements:
+    post:
+      tags:
+        - Engagements
+      summary: Create engagement for project
+      parameters:
+        - in: path
+          name: project_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                domain:
+                  type: string
+                training_type:
+                  type: string
+                total_students:
+                  type: integer
+                students_per_batch:
+                  type: integer
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Engagement created with auto-generated batches
+
+  /batches/{batch_id}/allocate:
+    put:
+      tags:
+        - Batches
+      summary: Allocate trainer to batch
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trainer_id:
+                  type: string
+                  format: uuid
+                support_staff:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Trainer allocated
+
+  /batches/{batch_id}/confirm:
+    post:
+      tags:
+        - Batches
+      summary: Confirm batch allocation
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Batch confirmed
+
+  /hr-requests/:
+    get:
+      tags:
+        - HR Requests
+      summary: Get all HR requests
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of HR requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HRRequest'
+
+    post:
+      tags:
+        - HR Requests
+      summary: Create HR request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  format: uuid
+                engagement_id:
+                  type: string
+                  format: uuid
+                domain:
+                  type: string
+                trainers_needed:
+                  type: integer
+                urgency:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: HR request created
+
+  /attendance:
+    get:
+      tags:
+        - Attendance
+      summary: Get attendance records
+      parameters:
+        - in: query
+          name: trainer_id
+          schema:
+            type: string
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Attendance'
+
+    post:
+      tags:
+        - Attendance
+      summary: Punch in (create attendance record)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                batch_id:
+                  type: string
+                project_id:
+                  type: string
+                engagement_id:
+                  type: string
+      responses:
+        '201':
+          description: Attendance record created
+
+  /attendance/punch-out:
+    post:
+      tags:
+        - Attendance
+      summary: Punch out
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                attendance_id:
+                  type: string
+                  format: uuid
+                completion_notes:
+                  type: string
+      responses:
+        '200':
+          description: Punch out successful
