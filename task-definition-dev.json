@@ -15,6 +15,10 @@
                 {
                     "name": "AWS_REGION",
                     "value": "us-east-1"
+                },
+                {
+                    "name": "DATABASE_SECRET_NAME",
+                    "value": "neo-eus1-dev-credentials"
                 }
             ],
             "essential": true,

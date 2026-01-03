@@ -64,6 +64,6 @@ async def shutdown_event():
 async def root():
     return {"message": "Training Management System API", "version": "1.0.0"}
 
-@app.get("/health")
+@app.get("/api/document/healthCheck")
 async def health_check():
     return {"status": "healthy"}

@@ -4,7 +4,7 @@ import os
 from .secrets import secretsmanager
 
 class Settings(BaseSettings):
-    database_url: str = None
+    database_url: Optional[str] = None
     secret_key: str = "your-secret-key-change-in-production-min-32-chars"
     
     # SMTP Email Configuration

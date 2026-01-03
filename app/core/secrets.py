@@ -43,13 +43,36 @@ class SecretsManager:
             
             if secret_value:
                 try:
-                    # If secret is JSON format
+                    # Parse JSON secret and get DATABASE_URL key
                     secret_dict = json.loads(secret_value)
                     return secret_dict.get('DATABASE_URL')
                 except json.JSONDecodeError:
-                    # If secret is plain text
+                    # If secret is plain text, return as is
                     return secret_value
         
         return None
 
+    def get_secret_key(self) -> Optional[str]:
+        """
+        Get SECRET_KEY from environment variable or AWS Secrets Manager
+        """
+        # First try environment variable
+        secret_key = os.getenv('SECRET_KEY')
+        if secret_key:
+            return secret_key
+        
+        # If not found and AWS is available, try AWS Secrets Manager
+        if self.available:
+            secret_name = os.getenv('DATABASE_SECRET_NAME', 'neo-eus1-dev-credentials')
+            secret_value = self.get_secret(secret_name)
+            
+            if secret_value:
+                try:
+                    # Parse JSON secret and get SECRET_KEY
+                    secret_dict = json.loads(secret_value)
+                    return secret_dict.get('SECRET_KEY')
+                except json.JSONDecodeError:
+                    pass
+        
+        return None
 secretsmanager = SecretsManager()
