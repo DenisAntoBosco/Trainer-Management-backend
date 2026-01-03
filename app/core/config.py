@@ -5,7 +5,7 @@ from .secrets import secretsmanager
 
 class Settings(BaseSettings):
     database_url: Optional[str] = None
-    secret_key: str = "your-secret-key-change-in-production-min-32-chars"
+    secret_key: str = "sk_prod_trainer_mgmt_2024_secure_key_32_chars_min"
     
     # SMTP Email Configuration
     smtp_host: Optional[str] = None
@@ -23,11 +23,8 @@ class Settings(BaseSettings):
         if not self.database_url:
             self.database_url = secretsmanager.get_database_url()
         
-        # Get secret key from Secrets Manager if not provided
-        if self.secret_key == "your-secret-key-change-in-production-min-32-chars":
-            secret_key = secretsmanager.get_secret_key()
-            if secret_key:
-                self.secret_key = secret_key
+        # Use the secret key from .env file consistently
+        # Don't try to get from Secrets Manager since you don't have it there
         
         # Fallback to default if still not found
         if not self.database_url:

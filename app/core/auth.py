@@ -6,6 +6,8 @@ from .logging_config import logger
 security = HTTPBearer(auto_error=False)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    logger.info(f"🔐 Authentication attempt - credentials present: {credentials is not None}")
+    
     if not credentials:
         logger.warning("No authentication credentials provided")
         raise HTTPException(
@@ -15,15 +17,18 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     
     token = credentials.credentials
+    logger.info(f"🎫 Token received (first 20 chars): {token[:20]}...")
+    
     payload = verify_token(token)
+    logger.info(f"🔍 Token verification result: {payload is not None}")
     
     if payload is None:
-        logger.warning(f"Invalid token attempted")
+        logger.warning(f"Invalid token attempted - token: {token[:50]}...")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    logger.info(f"User authenticated: {payload.get('user_id')}")
+    logger.info(f"✅ User authenticated: {payload.get('user_id')}")
     return payload

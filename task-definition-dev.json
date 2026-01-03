@@ -19,6 +19,10 @@
                 {
                     "name": "DATABASE_SECRET_NAME",
                     "value": "neo-eus1-dev-credentials"
+                },
+                {
+                    "name": "SECRET_KEY",
+                    "value": "sk_prod_trainer_mgmt_2024_secure_key_32_chars_min"
                 }
             ],
             "essential": true,
