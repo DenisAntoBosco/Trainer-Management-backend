@@ -1,0 +1,117 @@
+{
+    "compatibilities": [
+        "EC2",
+        "MANAGED_INSTANCES",
+        "FARGATE"
+    ],
+    "containerDefinitions": [
+        {
+            "cpu": 1024,
+            "environment": [
+                {
+                    "name": "SECRET_STORE_NAME",
+                    "value": "neo-eus1-dev-credentials"
+                },
+                {
+                    "name": "AWS_REGION",
+                    "value": "us-east-1"
+                },
+                {
+                    "name": "DATABASE_SECRET_NAME",
+                    "value": "neo-eus1-dev-credentials"
+                },
+                {
+                    "name": "SECRET_KEY",
+                    "value": "sk_prod_trainer_mgmt_2024_secure_key_32_chars_min"
+                }
+            ],
+            "essential": true,
+            "image": "488762301464.dkr.ecr.us-east-1.amazonaws.com/neo-eus1-dev-be-ecr:latest",
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/neo-eus1-dev-be-ecs-task-family",
+                    "awslogs-create-group": "true",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "memory": 2048,
+            "mountPoints": [],
+            "name": "neo-eus1-dev-be-container",
+            "portMappings": [
+                {
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                }
+            ],
+            "secrets": [],
+            "systemControls": [],
+            "volumesFrom": []
+        }
+    ],
+    "cpu": "1024",
+    "executionRoleArn": "arn:aws:iam::488762301464:role/neo-eus1-dev-taskexecutionrole",
+    "family": "neo-eus1-dev-be-ecs-task-family",
+    "memory": "2048",
+    "networkMode": "awsvpc",
+    "placementConstraints": [],
+    "registeredAt": "2026-01-03T06:51:51.318Z",
+    "registeredBy": "arn:aws:sts::488762301464:assumed-role/GitHubActionsDeploymentRole/aws-auth",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "ecs.capability.task-eni"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        }
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "revision": 1,
+    "status": "ACTIVE",
+    "taskDefinitionArn": "arn:aws:ecs:us-east-1:488762301464:task-definition/neo-eus1-dev-be-ecs-task-family:1",
+    "taskRoleArn": "arn:aws:iam::488762301464:role/neo-eus1-dev-taskexecutionrole",
+    "volumes": [],
+    "tags": [
+        {
+            "key": "app",
+            "value": "neo"
+        },
+        {
+            "key": "env",
+            "value": "dev"
+        },
+        {
+            "key": "author",
+            "value": "Zeb"
+        },
+        {
+            "key": "Name",
+            "value": "neo-eus1-dev-be-ecs-task-family"
+        }
+    ]
+}

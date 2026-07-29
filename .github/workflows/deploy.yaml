@@ -1,0 +1,129 @@
+name: Deploy Backend to ECS
+permissions: write-all
+on:
+  push:
+    branches:
+      - dev
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set environment variables
+        run: |
+          echo "ECR_REPO=neo-eus1-dev-be-ecr" >> "$GITHUB_ENV"
+          echo "ECS_CLUSTER=neo-eus1-dev-ecs-cluster" >> "$GITHUB_ENV"
+          echo "ECS_SERVICE=neo-eus1-dev-be-ecs-service" >> "$GITHUB_ENV"
+          echo "CONTAINER_NAME=neo-eus1-dev-be-container" >> "$GITHUB_ENV"
+          echo "TASK_DEFINITION_FILE=task-definition-dev.json" >> "$GITHUB_ENV"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build, tag, and push Docker image
+        id: build-image
+        env:
+          REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_number }}
+        run: |
+          IMAGE_URI="${REGISTRY}/${{ env.ECR_REPO }}:${IMAGE_TAG}"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+          echo "Building and pushing $IMAGE_URI"
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+          # Only one latest tag per repo (clean & simple)
+          docker tag "$IMAGE_URI" "${REGISTRY}/${{ env.ECR_REPO }}:latest"
+          docker push "${REGISTRY}/${{ env.ECR_REPO }}:latest"
+          
+      # - name: Install jq
+      #   run: sudo apt-get update && sudo apt-get install -y jq
+
+      # - name: Scan with AWS Inspector and validate thresholds
+      #   id: inspector-check
+      #   run: |
+      #     IMAGE_URI="${{ env.IMAGE_URI }}"
+      #     echo "Scanning image: $IMAGE_URI"
+      #     # Fetch findings from Inspector v2 using correct filter syntax
+      #     FINDINGS_FILE=$(mktemp)
+      #     aws inspector2 list-findings \
+      #       --filter-criteria "resourceId=[{comparison=\"EQUALS\",value=\"$IMAGE_URI\"}]" \
+      #       --max-results 100 \
+      #       > "$FINDINGS_FILE"
+      #     # Normalize findings (handle empty case)
+      #     if ! jq -e '.findings // empty' "$FINDINGS_FILE" >/dev/null 2>&1; then
+      #       echo "[]" > "$FINDINGS_FILE"
+      #     fi
+      #     # Count by severity
+      #     SEVERITY_COUNTS=$(jq -n \
+      #       --argjson findings "$(jq -r '.findings // []' "$FINDINGS_FILE")" \
+      #       '
+      #       {
+      #         "CRITICAL": 0,
+      #         "HIGH": 0,
+      #         "MEDIUM": 0,
+      #         "LOW": 0,
+      #         "UNTRIAGED": 0
+      #       } as $init |
+      #       ($init + (
+      #         $findings
+      #         | map(select(.severity != null))
+      #         | group_by(.severity)
+      #         | map({ key: .[0].severity, value: length })
+      #         | from_entries
+      #       ))
+      #       ')
+      #     echo "📊 Vulnerability counts:"
+      #     echo "$SEVERITY_COUNTS" | jq '.'
+      #     # Save for artifact upload
+      #     cp "$FINDINGS_FILE" ./scan-report.json
+      #     # Define thresholds (adjusted for development)
+      #     CRITICAL_THRESHOLD=5
+      #     HIGH_THRESHOLD=15
+      #     MEDIUM_THRESHOLD=25
+      #     LOW_THRESHOLD=50
+      #     FAILED=false
+      #     check_severity() {
+      #       local sev=$1; local thresh=$2
+      #       local count=$(echo "$SEVERITY_COUNTS" | jq -r ".$sev // 0")
+      #       if [[ $thresh -ge 0 && $count -gt $thresh ]]; then
+      #         echo "❌ $sev: $count > threshold ($thresh)"
+      #         FAILED=true
+      #       else
+      #         echo "✅ $sev: $count <= $thresh"
+      #       fi
+      #     }
+      #     check_severity "CRITICAL" $CRITICAL_THRESHOLD
+      #     check_severity "HIGH" $HIGH_THRESHOLD
+      #     check_severity "MEDIUM" $MEDIUM_THRESHOLD
+      #     check_severity "LOW" $LOW_THRESHOLD
+      #     if [[ "$FAILED" == "true" ]]; then
+      #       echo "💥 Pipeline failed due to exceeded vulnerability thresholds."
+      #       exit 1
+      #     else
+      #       echo "✅ All thresholds respected."
+      #     fi
+      # - name: Upload AWS Inspector Scan Report
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: aws-inspector-scan-report
+      #     path: ./scan-report.json
+      - name: Render ECS task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.TASK_DEFINITION_FILE }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.IMAGE_URI }}
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}

@@ -1,0 +1,196 @@
+@startuml Training Management System - ER Diagram
+
+!define table(x) class x << (T,#FFAAAA) >>
+!define primary_key(x) <b><u>x</u></b>
+!define foreign_key(x) <i>x</i>
+
+hide methods
+hide stereotypes
+
+' Entities
+table(profiles) {
+  primary_key(id): UUID
+  --
+  name: TEXT
+  email: TEXT
+  avatar_url: TEXT
+  password_hash: VARCHAR(255)
+  is_active: BOOLEAN
+  created_at: TIMESTAMP
+  created_by: VARCHAR(100)
+  modified_at: TIMESTAMP
+  modified_by: VARCHAR(100)
+}
+
+table(user_roles) {
+  primary_key(id): UUID
+  --
+  foreign_key(user_id): UUID
+  role: ENUM(admin, hr, project_manager, trainer)
+  is_active: BOOLEAN
+  created_at: TIMESTAMP
+  created_by: VARCHAR(100)
+  modified_at: TIMESTAMP
+  modified_by: VARCHAR(100)
+}
+
+table(trainers) {
+  primary_key(id): UUID
+  --
+  foreign_key(user_id): UUID
+  name: TEXT
+  email: TEXT
+  phone: VARCHAR(20)
+  avatar: TEXT
+  expertise: TEXT[]
+  status: TEXT
+  max_batches: INTEGER
+  current_batches: INTEGER
+  employment_type: TEXT
+  experience_level: TEXT
+  gender: VARCHAR(10)
+  join_date: DATE
+  is_active: BOOLEAN
+  created_at: TIMESTAMP
+  created_by: VARCHAR(100)
+  modified_at: TIMESTAMP
+  modified_by: VARCHAR(100)
+}
+
+table(projects) {
+  primary_key(id): UUID
+  --
+  name: TEXT
+  client_name: TEXT
+  primary_contact_name: TEXT
+  primary_contact_email: TEXT
+  primary_contact_phone: TEXT
+  project_type: TEXT[]
+  start_date: DATE
+  end_date: DATE
+  description: TEXT
+  status: ENUM(active, upcoming, completed)
+  created_at: TIMESTAMP
+  foreign_key(created_by): UUID
+}
+
+table(engagements) {
+  primary_key(id): UUID
+  --
+  foreign_key(project_id): UUID
+  name: TEXT
+  domain: TEXT
+  training_type: TEXT
+  total_students: INTEGER
+  students_per_batch: INTEGER
+  start_date: DATE
+  end_date: DATE
+  status: ENUM(active, upcoming, completed)
+  created_at: TIMESTAMP
+}
+
+table(batches) {
+  primary_key(id): UUID
+  --
+  foreign_key(engagement_id): UUID
+  batch_number: INTEGER
+  students: INTEGER
+  start_date: DATE
+  end_date: DATE
+  status: ENUM(confirmed, pending, awaiting_confirmation)
+  foreign_key(trainer_id): UUID
+  confirmed_at: TIMESTAMP
+  foreign_key(confirmed_by): UUID
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+}
+
+table(hr_requests) {
+  primary_key(id): UUID
+  --
+  foreign_key(project_id): UUID
+  foreign_key(engagement_id): UUID
+  domain: TEXT
+  trainers_needed: INTEGER
+  urgency: ENUM(critical, high, medium, low)
+  status: ENUM(pending, in_progress, fulfilled)
+  notes: TEXT
+  created_at: TIMESTAMP
+  foreign_key(created_by): UUID
+  updated_at: TIMESTAMP
+}
+
+table(trainer_attendance) {
+  primary_key(id): UUID
+  --
+  trainer_id: TEXT
+  trainer_name: TEXT
+  batch_id: TEXT
+  project_id: TEXT
+  engagement_id: TEXT
+  date: DATE
+  status: ENUM(pending, present, absent, half_day)
+  punch_in: TIMESTAMP
+  punch_out: TIMESTAMP
+  completion_notes: TEXT
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+}
+
+table(error_logs) {
+  primary_key(id): UUID
+  --
+  error_id: VARCHAR(50)
+  error_message: TEXT
+  stack_trace: TEXT
+  component: VARCHAR(100)
+  severity: VARCHAR(20)
+  function_name: VARCHAR(100)
+  created_at: TIMESTAMP
+  foreign_key(created_by): UUID
+}
+
+' Relationships
+profiles ||--o{ user_roles : "has"
+profiles ||--o{ trainers : "can be"
+profiles ||--o{ projects : "creates"
+profiles ||--o{ batches : "confirms"
+profiles ||--o{ hr_requests : "creates"
+profiles ||--o{ error_logs : "logs"
+
+projects ||--o{ engagements : "contains"
+projects ||--o{ hr_requests : "generates"
+
+engagements ||--o{ batches : "divided into"
+engagements ||--o{ hr_requests : "requires"
+
+trainers ||--o{ batches : "assigned to"
+
+batches ||--o{ trainer_attendance : "tracks"
+
+note right of profiles
+  Central user table
+  Stores all user accounts
+end note
+
+note right of trainers
+  Trainer profiles with
+  expertise and availability
+end note
+
+note right of projects
+  Client projects with
+  multiple engagements
+end note
+
+note right of batches
+  Auto-generated from
+  engagement configuration
+end note
+
+note right of hr_requests
+  Created when trainers
+  are insufficient
+end note
+
+@enduml
